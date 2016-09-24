@@ -1,8 +1,11 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import os
+import fcntl
 import time
 import sys
+
 from time import gmtime, strftime, sleep
 import CHIP_IO.GPIO as GPIO
 import json
@@ -20,6 +23,11 @@ GPIO.cleanup()
 
 chatbot = eliza.Chat(eliza.pairs)
 
+fileout = open("log1.txt", 'w')
+
+fl = fcntl.fcntl(sys.stdin.fileno(), fcntl.F_GETFL)
+fcntl.fcntl(sys.stdin.fileno(), fcntl.F_SETFL, fl | os.O_NONBLOCK)
+
 class Comm:
   """A class which communicates out messages"""
 
@@ -36,27 +44,30 @@ class Comm:
 
     self.auth = OAuthHandler(CONSUMER_KEY, CONSUMER_SECRET)
     auth = OAuthHandler(CONSUMER_KEY, CONSUMER_SECRET)
-    #auth = tweepy.OAuthHandler(CONSUMER_KEY, CONSUMER_SECRET)
     auth.set_access_token(ACCESS_KEY, ACCESS_SECRET)
 
   def doorOpen(self, duration):
-    current_time = strftime("%Y-%m-%d %H:%M:%S", gmtime())
+    #current_time = strftime("%Y-%m-%d %H:%M:%S:", gmtime())
+    current_time = str(int(round(time.time()*1000)))
     if duration == 0:
-      message = "Door opened."
+      message = "Door opened.\r\n"
     else:
-      message = "Door open for " + str(duration) + " minutes."
+      message = "Door open for " + str(duration) + " minutes.\r\n"
 
     #tweepy.API(self.auth).update_status(message)
     #API(self.auth).update_status(message)
     print message
+    fileout.write(current_time + message)
 
 
   def doorClosed(self, duration):
-    current_time = strftime("%Y-%m-%d %H:%M:%S", gmtime())
-    message = "Door closed after " + str(duration) + " minutes."
+    #current_time = strftime("%Y-%m-%d %H:%M:%S:", gmtime())
+    current_time = str(int(round(time.time()*1000)))
+    message = "Door closed after " + str(duration) + " minutes.\r\n"
     #tweepy.API(self.auth).update_status(message)
     #API(self.auth).update_status(message)
     print message
+    fileout.write(current_time + message)
 
     #tweet_api = tweepy.API(self.auth)
     #tweet_api = API(self.auth)
@@ -139,8 +150,6 @@ door1 = "XIO-P7"
 
 comm = Comm()
 
-#sensor = Sensor()
-
 count = 0 # Number of intervals the door was noticed open
 interval = 1 # Number of minutes to wait between checks for open/closed
 door = "closed"
@@ -156,23 +165,47 @@ streamListener = ReplyToTweet()
 twitterStream = Stream(comm.auth, streamListener)
 twitterStream.userstream(_with='user')
 
-while True:
-  #Every qty of minutes, check status
-  #If open then send a message with count of open time 
-  #If closed then reset the open counter
+# Look for user input to clean up gracefully
 
-  if GPIO.input(door1):
-    door = "open"
-    comm.doorOpen(count * interval)
-    count = count + 1
-    #sleep(interval * 60) # sleep is seconds; interval is minutes
-    sleep(interval * 2) # Short intervales for testing
-  else:
-    if door == "open":
+#try:
+  #while True:
+    #stdin = sys.stdin.read()
+    #if "\n" in stdin or "\r" in stdin:
+      #break
+  
+    #Every qty of minutes, check status
+    #If open then send a message with count of open time 
+    #If closed then reset the open counter
+
+while True:
+  if GPIO.input(door1): # High means it's open
+    if door is "AlreadyOpen":
+      #print 1
+      pass
+    else:
+      #print 2
+      door = "AlreadyOpen"
+      print "Door opened"
+      comm.doorOpen(count * interval)
+      count = count + 1
+      #sleep(interval * 60) # sleep is seconds; interval is minutes
+      #sleep(interval * 2) # Short intervals for testing
+  else: # Door is now closed
+    #print 3
+    if door is "AlreadyOpen":
+      #print 4
+      print "Door closed"
       door = "closed"
       comm.doorClosed(count * interval)
       count = 0
 
+#except IOError as e:
+  #print "Exception"
+  #print e.errorno e.strerror
+  #GPIO.cleanup()
+  #fileout.close()
+  #pass
 
 GPIO.cleanup()
+fileout.close()
 
