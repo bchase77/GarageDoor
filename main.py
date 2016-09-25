@@ -14,6 +14,7 @@ from tweepy.streaming import StreamListener
 from tweepy import OAuthHandler
 from tweepy import Stream
 from tweepy import API
+#import tweepy
 
 from nltk.chat import eliza
 
@@ -45,9 +46,9 @@ class Comm:
      #keep the quotes, replace this with your access token secret
     ACCESS_SECRET = 'TdbqgAlJA4nRfAm37J3OwbJrG1ed2A1WAYHbN4lznlIW1'
 
+    #auth = OAuthHandler(CONSUMER_KEY, CONSUMER_SECRET)
     self.auth = OAuthHandler(CONSUMER_KEY, CONSUMER_SECRET)
-    auth = OAuthHandler(CONSUMER_KEY, CONSUMER_SECRET)
-    auth.set_access_token(ACCESS_KEY, ACCESS_SECRET)
+    self.auth.set_access_token(ACCESS_KEY, ACCESS_SECRET)
 
   def printMaybe(self, text):
     pass # Do nothing sometimes
@@ -57,8 +58,10 @@ class Comm:
     print text
 
   def tweet(self, text):
-    print text
+    #print text
     API(self.auth).update_status(text)
+    #print self.auth
+    print text
 
   def doorOpen(self, duration):
     #current_time = strftime("%Y-%m-%d %H:%M:%S:", gmtime())
@@ -168,9 +171,18 @@ class ReplyToTweet(StreamListener):
 #def on_data(self, data): # When a tweet comes in, on_data processes it
 
 # Initialize
-# Read gpios
-# If door open, send a tweet
-# If timer timed out then send a tweet
+# doorState  doorSensor  Timer      Action
+# ---------  ----------  -----      ------
+# Closed     Closed      don'tCare  do nothing
+# Closed     Open        don'tCare  doorState = maybeOpen; Note the time.
+# MaybeOpen  Open        < Timeout  do nothing
+# MaybeOpen  Open        > Timeout  doorState = open, send message "Door Opened"
+# MaybeOpen  Closed      Timer = 0  (Log a shake) doorState = Closed
+# Open       Open        If another interval has passed, send message "Door open for N minutes"  
+# Open       Closed      don'tCare  doorState = maybeClosed; Note the time.
+# MaybeOpen  Closed      < Timeout  do nothing
+# MaybeOpen  Closed      > Timeout  doorState = Closed, send message "Door Closed"
+# MaybeOpen  Open        Timer = 0  (Log a shake) doorState = Open
 
 door1 = "XIO-P7"
 
@@ -187,26 +199,13 @@ GPIO.setup(door1, GPIO.IN)
 # This if __name__ line will only run if this block is pasted
 # into the main.py module. 
 #if __name__ == '__main__':
-streamListener = ReplyToTweet()
-twitterStream = Stream(comm.auth, streamListener)
-twitterStream.userstream(_with='user')
-
-# Look for user input to clean up gracefully
-
-#try:
-  #while True:
-    #stdin = sys.stdin.read()
-    #if "\n" in stdin or "\r" in stdin:
-      #break
-  
-    #Every qty of minutes, check status
-    #If open then send a message with count of open time 
-    #If closed then reset the open counter
+#streamListener = ReplyToTweet()
+#twitterStream = Stream(comm.auth, streamListener)
+#twitterStream.userstream(_with='user')
 
 doorState = 'Closed' # Start assuming door is closed
 #Timeout = 1000 # # of milliseconds door needs to be open to be 'open'
 Timeout = 2 # # of seconds door needs to be open to be 'open'
-#MessageTimeout = 60000 # # of milliseconds between messages while the door is open
 MessageTimeout = 60 # # of seconds between messages while the door is open
 count = 0
 # time.time() == now
@@ -215,7 +214,6 @@ while True:
   if doorState == 'Closed':
     if GPIO.input(door1): # High means sensor is open
       doorState = 'MaybeOpen'
-      #maybeOpenTime = int(round((time.time() - SEVENHOURS) * 1000))
       maybeOpenTime = datetime.datetime.now() - SEVENHOURS
       comm.printMaybe('Closed, maybe open')
     else: # Sensor is closed
@@ -223,16 +221,13 @@ while True:
 
   elif doorState == 'MaybeOpen':
     if GPIO.input(door1): # High means sensor is open
-      #if (int(round(time.time()*1000)) - maybeOpenTime) > Timeout:
       duration = datetime.datetime.now() - SEVENHOURS - maybeOpenTime
-      #if (datetime.datetime.now() - SEVENHOURS - maybeOpenTime).total_seconds() > Timeout:
       if duration.total_seconds() > Timeout:
         doorState = 'Open'
-	#openTime = int(round((time.time() - SEVENHOURS) * 1000))
         openTime = datetime.datetime.now() - SEVENHOURS
         text = "Door opened at " + openTime.strftime("%Y-%m-%d %H:%M:%S:")
         comm.printout(text)
-        #comm.tweet(text)
+        comm.tweet(text)
       else: # Door may be open, sensor is still open, no timeout yet
         pass # do nothing, just wait
     else: # Sensor is closed
@@ -241,25 +236,21 @@ while True:
 
   elif doorState == 'Open':
     if GPIO.input(door1): # High means sensor is open
-      #duration = int(round((time.time() - SEVENHOURS) * 1000)) - openTime # now - opened
       duration = datetime.datetime.now() - SEVENHOURS - openTime # now - opened
       if duration.total_seconds() > MessageTimeout:
         count = count + 1
-        #text = "Door open for " + str(count) + " minutes."
         text = "Door open for " + str(count) + " minute"
         if count > 1:
-          text = text + 's.\r\n'
+          text = text + 's.'
         else:
-          text = text + '.\r\n'
+          text = text + '.'
         comm.printout(text)
-        #comm.tweet(text)
-        #openTime = openTime + 60000 # Add 60 seconds
+        comm.tweet(text)
         openTime = openTime + SIXTYSECS # Add 60 seconds
       else: # Duration not long enough, just wait
         pass # do nothin
     else: # Sensor is closed
       doorState = "MaybeClosed"
-      #maybeClosedTime = int(round((time.time() - SEVENHOURS) * 1000))
       maybeClosedTime = datetime.datetime.now() - SEVENHOURS
       comm.printMaybe('Open, maybe closed')
 
@@ -268,62 +259,19 @@ while True:
       doorState = 'Open' 
       comm.printMaybe('Shake - now Open')
     else: # Sensor is Closed
-      #if (int(round((time.time() - SEVENHOURS) * 1000)) - maybeClosedTime) > Timeout:
       duration = datetime.datetime.now() - SEVENHOURS  - maybeClosedTime
       if duration.total_seconds() > Timeout:
         doorState = 'Closed'
         count = 0
-	#ClosedTime = int(round((time.time() - SEVENHOURS) * 1000))
 	ClosedTime = datetime.datetime.now() - SEVENHOURS
-        #text = "Door closed at " + strftime("%Y-%m-%d %H:%M:%S:", ClosedTime())
         text = "Door closed at " + ClosedTime.strftime("%Y-%m-%d %H:%M:%S:")
         comm.printout(text)
-        #comm.tweet(text)
+        comm.tweet(text)
       else: # Door may be closed, sensor is closed, no timeout yet
         pass # Do nothing, just wait
   else: # Error
     comm.printout("This should never print. Statemachine missing state.")
       
-    
-
-    
-
-
-
-
-
-
-
-
-
-  #if GPIO.input(door1): # High means it's open
-    #if door is "AlreadyOpen":
-      ##print 1
-      #pass
-    #else:
-      ##print 2
-      #door = "AlreadyOpen"
-      #print "Door opened"
-      #comm.doorOpen(count * interval)
-      #count = count + 1
-      ##sleep(interval * 60) # sleep is seconds; interval is minutes
-      ##sleep(interval * 2) # Short intervals for testing
-  #else: # Door is now closed
-    ##print 3
-    #if door is "AlreadyOpen":
-      ##print 4
-      #print "Door closed"
-      #door = "closed"
-      #comm.doorClosed(count * interval)
-      #count = 0
-
-#except IOError as e:
-  #print "Exception"
-  #print e.errorno e.strerror
-  #GPIO.cleanup()
-  #fileout.close()
-  #pass
-
 GPIO.cleanup()
 fileout.close()
 
