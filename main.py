@@ -14,6 +14,7 @@ from tweepy.streaming import StreamListener
 from tweepy import OAuthHandler
 from tweepy import Stream
 from tweepy import API
+from tweepy import TweepError
 # import tweepy
 
 from nltk.chat import eliza
@@ -62,12 +63,22 @@ class Comm:
         # print text
         try:
             API(self.auth).update_status(text)
-        except Exception as e:
-            print "Exception({0}: {1}".format(e.errno, e.strerror)
+        except TweepError as e:
+            print e.api_code
+            print e.reason
+            print e.response
+            print e.message
+            print e.args
             pass
 
-        print text
+        print "tweeted" + text
 
+    # To check WiFi:
+    #   ip link
+    #   sudo ip link set wlan 0 down
+    #   sudo ip link set wlan 0 up
+    #   nmcli device status
+    #
     # def doorOpen(self, duration):
     #     # current_time = strftime("%Y-%m-%d %H:%M:%S:", gmtime())
     #     # current_time = str(int(round((time.time() - SEVENHOURS) * 1000)))
