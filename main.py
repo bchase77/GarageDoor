@@ -143,7 +143,19 @@ class Test:
         # GPIO.add_event_detect(door1, GPIO.BOTH)
 
 
-# class ReplyToTweet(StreamListener):
+# class StdOutListener(StreamListener):
+#     """Handles data received from the stream."""
+#     
+#     def on_status(self, status):
+#         # Prints the text of the tweet
+#         text = "Tweet text: " + status.text
+#         print text
+#       # There are many options in the status object,
+#       # hashtags can be very easily accessed.
+#         for hashtag in status.entries['hashtags']:
+#         print hashtag['text']
+#     return true
+#
 #     def on_data(self, data):
 #         # process stream data here
 #         print data
@@ -169,11 +181,14 @@ class Test:
 #             # twitterApi.update_status(replyText, tweetId)
 #             print replyText
 #
-#         def on_error(self, status):
-#             print status
-
-# def on_data(self, data): # When a tweet comes in, on_data processes it
-
+#     def on_timeout(self):
+#         print "Timeout..."
+#         return True # To continue listening
+#
+#     def on_error(self, status):
+#         print "Received tweet error, status code: " + status
+#         return True # To continue listening
+#
 # Initialize
 # doorState  doorSensor  Timer      Action
 # ---------  ----------  -----      ------
@@ -196,16 +211,18 @@ count = 0  # Number of intervals the door was noticed open
 interval = 1  # Number of minutes to wait between checks for open/closed
 door = "closed"
 
-print "Looking for the door to change now."
+text = "Looking for the door to change now."
+print text
+comm.tweet(text)
 
 GPIO.setup(door1, GPIO.IN)
 
 # This if __name__ line will only run if this block is pasted
 # into the main.py module. 
 # if __name__ == '__main__':
-# streamListener = ReplyToTweet()
-# twitterStream = Stream(comm.auth, streamListener)
-# twitterStream.userstream(_with='user')
+streamListener = StdOutListener()
+twitterStream = Stream(comm.auth, streamListener)
+##fix this: twitterStream.userstream(_with='user')
 
 doorState = 'Closed'  # Start assuming door is closed
 # Timeout = 1000 # # of milliseconds door needs to be open to be 'open'
