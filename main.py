@@ -1,6 +1,9 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+# This works, but it sticks in the streamlistener function, not looking at the door.
+# Need to separate that somehow.
+
 import os
 #import fcntl
 import time
