@@ -2,11 +2,10 @@
 # -*- coding: utf-8 -*-
 
 import os
-import fcntl
+#import fcntl
 import time
 import sys
 import datetime
-import CHIP_IO.GPIO as GPIO
 import json
 
 from time import gmtime, strftime, sleep
@@ -19,7 +18,25 @@ from tweepy import TweepError
 
 from nltk.chat import eliza
 
-print "Hello C.H.I.P. World! Looking at the garage door."
+import platform
+if platform.node()=="Bryan-SSD-HP":
+    class GPIO:
+        def __init__(self):
+            #self.input = 1
+            self.IN = 1
+
+        def cleanup(self):
+            pass
+        def setup(self, door, direction):
+            print "door " + door + " set to direction" + direction.__str__()
+        def input(self,door):
+            print door
+    GPIO = GPIO()
+
+else:
+    import CHIP_IO.GPIO as GPIO
+
+print "Hello C.H.I.P. World! Setting up to look at the garage door."
 
 GPIO.cleanup()
 
@@ -27,12 +44,11 @@ chatbot = eliza.Chat(eliza.pairs)
 
 fileout = open("log1.txt", 'w')
 
-fl = fcntl.fcntl(sys.stdin.fileno(), fcntl.F_GETFL)
-fcntl.fcntl(sys.stdin.fileno(), fcntl.F_SETFL, fl | os.O_NONBLOCK)
+#fl = fcntl.fcntl(sys.stdin.fileno(), fcntl.F_GETFL)
+#fcntl.fcntl(sys.stdin.fileno(), fcntl.F_SETFL, fl | os.O_NONBLOCK)
 
 SEVENHOURS = datetime.timedelta(hours=7)
 SIXTYSECS = datetime.timedelta(seconds=60)
-
 
 class Comm:
     """A class which communicates out messages"""
@@ -78,44 +94,6 @@ class Comm:
     #   sudo ip link set wlan 0 down
     #   sudo ip link set wlan 0 up
     #   nmcli device status
-    #
-    # def doorOpen(self, duration):
-    #     # current_time = strftime("%Y-%m-%d %H:%M:%S:", gmtime())
-    #     # current_time = str(int(round((time.time() - SEVENHOURS) * 1000)))
-    #     current_time = datetime.datetime.now() - SEVENHOURS
-    #     if duration == 0:
-    #         message = "Door opened.\r\n"
-    #     else:
-    #         # message = "Door open for " + str(duration) + " minute.\r\n"
-    #         message = "Door open for " + str(duration) + " minute"
-    #         if duration > 1:
-    #             message = message + "s.\r\n"
-    #         else:
-    #             message = message + ".\r\n"
-    #
-    #     # tweepy.API(self.auth).update_status(message)
-    #     # API(self.auth).update_status(message)
-    #     print message
-    #     fileout.write(current_time + message)
-    #
-    # def doorClosed(self, duration):
-    #     # current_time = strftime("%Y-%m-%d %H:%M:%S:", gmtime())
-    #     # current_time = str(int(round((time.time() - SEVENHOURS) * 1000)))
-    #     current_time = datetime.datetime.now() - SEVENHOURS
-    #     # message = "Door closed after " + str(duration) + " minutes.\r\n"
-    #     message = "Door closed after " + str(duration) + " minute"
-    #     if duration > 1:
-    #         message = message + "s.\r\n"
-    #     else:
-    #         message = message + ".\r\n"
-    #     # tweepy.API(self.auth).update_status(message)
-    #     # API(self.auth).update_status(message)
-    #     print message
-    #     fileout.write(current_time + message)
-    #
-    #     # tweet_api = tweepy.API(self.auth)
-    #     # tweet_api = API(self.auth)
-    #     # tweet_api.update_status(message)
 
 class Test:
     """A class which can test tweeting"""
@@ -127,11 +105,13 @@ class Test:
             f = filename.readlines()
             filename.close()
 
+            comm = Comm()
+
             for line in f:
-                tweet_api.update_status(line)
-                time.sleep(300)  # Tweet every 15 minutes
-                # time.sleep(900)#Tweet every 15 minutes
-                # time.sleep(60)#Tweet every 1 minute
+                comm.tweet(line)
+                time.sleep(300)  # Tweet every 5 minutes
+                # time.sleep(900) # Tweet every 15 minutes
+                # time.sleep(60)  # Tweet every 1 minute
         except:
             print "Test flow. Command line filename of a file with tweets expected but not found."
 
@@ -153,52 +133,58 @@ class Test:
         # GPIO.add_event_detect(door1, GPIO.BOTH, bouncetime=500)
         # GPIO.add_event_detect(door1, GPIO.BOTH)
 
+class StdOutListener(StreamListener):
+    """Handles data received from the stream."""
 
-# class StdOutListener(StreamListener):
-#     """Handles data received from the stream."""
-#     
-#     def on_status(self, status):
-#         # Prints the text of the tweet
-#         text = "Tweet text: " + status.text
-#         print text
-#       # There are many options in the status object,
-#       # hashtags can be very easily accessed.
-#         for hashtag in status.entries['hashtags']:
-#         print hashtag['text']
-#     return true
-#
-#     def on_data(self, data):
-#         # process stream data here
-#         print data
-#
-#         tweet = json.loads(data.strip())
-#
-#         retweeted = tweet.get('retweeted', False)
-#         from_self = tweet.get('user', {}).get('id_str', '') == account_user_id
-#
-#         if retweeted is not None and not retweeted and not from_self:
-#
-#             tweetId = tweet.get('id_str')
-#             screenName = tweet.get('user').get('screen_name')
-#             tweetText = tweet.get('text')
-#
-#             chatResponse = chatbot.respond(tweetText)
-#
-#             replyText = '@' + screenName + ' ' + chatResponse
-#
-#             if len(replyText) > 140:
-#                 replyText = replyText[0:137] + '...'
-#
-#             # twitterApi.update_status(replyText, tweetId)
-#             print replyText
-#
-#     def on_timeout(self):
-#         print "Timeout..."
-#         return True # To continue listening
-#
-#     def on_error(self, status):
-#         print "Received tweet error, status code: " + status
-#         return True # To continue listening
+    def on_status(self, status):
+        print "on_status"
+        # Prints the text of the tweet
+        text = "Tweet text: " + status.text
+        print text
+      # There are many options in the status object,
+      # hashtags can be very easily accessed.
+      #  for hashtag in status.entries['hashtags']:
+      #      print hashtag['text']
+        return True
+
+    def on_data(self, data):
+        print "on_data"
+        #print data
+        # process stream data here
+        jsonData=json.loads(data)
+        #print str(jsonData)
+        print jsonData['text'] # This works, prints "#ChipCMD really looking" for example
+        comm.tweet("Chip-> I'm alive!")
+
+        # tweet = json.loads(data.strip())
+        #
+        # retweeted = tweet.get('retweeted', False)
+        # from_self = tweet.get('user', {}).get('id_str', '') == account_user_id
+        #
+        # if retweeted is not None and not retweeted and not from_self:
+        #
+            # tweetId = tweet.get('id_str')
+            # screenName = tweet.get('user').get('screen_name')
+            # tweetText = tweet.get('text')
+            #
+            # chatResponse = chatbot.respond(tweetText)
+            #
+            # replyText = '@' + screenName + ' ' + chatResponse
+            #
+            # if len(replyText) > 140:
+            #     replyText = replyText[0:137] + '...'
+            #
+            # # twitterApi.update_status(replyText, tweetId)
+            # print replyText
+
+    def on_timeout(self):
+        print "on_timeout"
+        return True # To continue listening
+
+    def on_error(self, status):
+        print "on_error"
+        print "Received tweet error, status code: " + status
+        return True # To continue listening
 #
 # Initialize
 # doorState  doorSensor  Timer      Action
@@ -208,7 +194,7 @@ class Test:
 # MaybeOpen  Open        < Timeout  do nothing
 # MaybeOpen  Open        > Timeout  doorState = open, send message "Door Opened"
 # MaybeOpen  Closed      Timer = 0  (Log a shake) doorState = Closed
-# Open       Open        If another interval has passed, send message "Door open for N minutes"  
+# Open       Open        If another interval has passed, send message "Door open for N minutes"
 # Open       Closed      don'tCare  doorState = maybeClosed; Note the time.
 # MaybeOpen  Closed      < Timeout  do nothing
 # MaybeOpen  Closed      > Timeout  doorState = Closed, send message "Door Closed"
@@ -229,22 +215,38 @@ comm.tweet(text)
 GPIO.setup(door1, GPIO.IN)
 
 # This if __name__ line will only run if this block is pasted
-# into the main.py module. 
+# into the main.py module.
 # if __name__ == '__main__':
-streamListener = StdOutListener()
-twitterStream = Stream(comm.auth, streamListener)
-##fix this: twitterStream.userstream(_with='user')
+
+#follow = [197944326]
+follow = []
+track = ['ChipCMD']
+myStreamListener = StdOutListener()
+myStream = Stream(comm.auth, myStreamListener)
+
+try:
+    myStream.filter(track=track, follow=follow)
+except:
+    print "Stream Follow Error!"
+    myStream.disconnect()
 
 doorState = 'Closed'  # Start assuming door is closed
 # Timeout = 1000 # # of milliseconds door needs to be open to be 'open'
 Timeout = 2  # # of seconds door needs to be open to be 'open'
-MessageTimeout = 60  # # of seconds between messages while the door is open
+MessageTimeout = 120  # # of seconds between messages while the door is open
 maybeOpenTime = 0
 openTime = 0
 maybeClosedTime = 0
-# time.time() == now
+heartbeatTime = "12:00"
 
 while True:
+    time.sleep(60) # Don't do much faster than 1 minute increments
+
+    if heartbeatTime == datetime.datetime.now().strftime("%H:%M"): # Beat if the time is right
+        text = "Chip Heartbeat" + datetime.datetime.now()
+        comm.printout(text)
+        comm.tweet(text)
+
     if doorState == 'Closed':
         if GPIO.input(door1):  # High means sensor is open
             doorState = 'MaybeOpen'
@@ -272,7 +274,7 @@ while True:
         if GPIO.input(door1):  # High means sensor is open
             duration = datetime.datetime.now() - SEVENHOURS - openTime  # now - opened
             if duration.total_seconds() > MessageTimeout:
-                count += 1
+                count += MessageTimeout / 60.0
                 text = "Door open for " + str(count) + " minute"
                 if count > 1:
                     text += 's.'
@@ -280,7 +282,7 @@ while True:
                     text += '.'
                 comm.printout(text)
                 comm.tweet(text)
-                openTime += SIXTYSECS  # Add 60 seconds
+                openTime += SIXTYSECS * MessageTimeout / 60 # Add 60 seconds
             else:  # Duration not long enough, just wait
                 pass  # do nothing
         else:  # Sensor is closed
