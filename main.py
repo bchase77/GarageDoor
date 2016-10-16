@@ -10,6 +10,7 @@ import time
 import sys
 import datetime
 import json
+import urllib2
 
 from time import gmtime, strftime, sleep
 from tweepy.streaming import StreamListener
@@ -27,13 +28,24 @@ if platform.node()=="Bryan-SSD-HP":
         def __init__(self):
             #self.input = 1
             self.IN = 1
+            self.sim = True
 
         def cleanup(self):
             pass
+
         def setup(self, door, direction):
-            print "door " + door + " set to direction" + direction.__str__()
+            print "door " + door + " is now set to " + self.IN.__str__()
+
         def input(self,door):
-            print door
+            print 'input'
+            print 'door ' + self.IN.__str__() + " " + datetime.datetime.now().strftime("%H:%M:%S")
+            return self.IN
+
+        def set(self, direction):
+            self.IN = direction
+            print 'set'
+            print self.IN
+
     GPIO = GPIO()
 
 else:
@@ -52,51 +64,6 @@ fileout = open("log1.txt", 'w')
 
 SEVENHOURS = datetime.timedelta(hours=7)
 SIXTYSECS = datetime.timedelta(seconds=60)
-
-class Comm:
-    """A class which communicates out messages"""
-
-    def __init__(self):
-        # enter the corresponding information from your Twitter application:
-        # keep the quotes, replace this with your consumer key
-        CONSUMER_KEY = 'bCu4uFXpEFBLFmDYs6XaUQ2S1'
-        # keep the quotes, replace this with your consumer secret key
-        CONSUMER_SECRET = 'CN4pBwVqQL06P7euNCElFj6i6zJUN6diuWD7kXaTl1599pkNNp'
-        # keep the quotes, replace this with your access token
-        ACCESS_KEY = '777311285138468864-TiZjddKWrzs3FrffnXuUlHT3jynyZEF'
-        # keep the quotes, replace this with your access token secret
-        ACCESS_SECRET = 'TdbqgAlJA4nRfAm37J3OwbJrG1ed2A1WAYHbN4lznlIW1'
-
-        # auth = OAuthHandler(CONSUMER_KEY, CONSUMER_SECRET)
-        self.auth = OAuthHandler(CONSUMER_KEY, CONSUMER_SECRET)
-        self.auth.set_access_token(ACCESS_KEY, ACCESS_SECRET)
-
-    def printMaybe(self, text):
-        pass  # Do nothing sometimes
-        # print text
-
-    def printout(self, text):
-        print text
-
-    def tweet(self, text):
-        # print text
-        try:
-            API(self.auth).update_status(text)
-        except TweepError as e:
-            print e.api_code
-            print e.reason
-            print e.response
-            print e.message
-            print e.args
-            pass
-
-        print "tweeted" + text
-
-    # To check WiFi:
-    #   ip link
-    #   sudo ip link set wlan 0 down
-    #   sudo ip link set wlan 0 up
-    #   nmcli device status
 
 class Test:
     """A class which can test tweeting"""
@@ -136,6 +103,53 @@ class Test:
         # GPIO.add_event_detect(door1, GPIO.BOTH, bouncetime=500)
         # GPIO.add_event_detect(door1, GPIO.BOTH)
 
+class Comm:
+    """A class which communicates out messages"""
+
+    def __init__(self):
+        # enter the corresponding information from your Twitter application:
+        # keep the quotes, replace this with your consumer key
+        CONSUMER_KEY = 'bCu4uFXpEFBLFmDYs6XaUQ2S1'
+        # keep the quotes, replace this with your consumer secret key
+        CONSUMER_SECRET = 'CN4pBwVqQL06P7euNCElFj6i6zJUN6diuWD7kXaTl1599pkNNp'
+        # keep the quotes, replace this with your access token
+        ACCESS_KEY = '777311285138468864-TiZjddKWrzs3FrffnXuUlHT3jynyZEF'
+        # keep the quotes, replace this with your access token secret
+        ACCESS_SECRET = 'TdbqgAlJA4nRfAm37J3OwbJrG1ed2A1WAYHbN4lznlIW1'
+
+        # auth = OAuthHandler(CONSUMER_KEY, CONSUMER_SECRET)
+        self.auth = OAuthHandler(CONSUMER_KEY, CONSUMER_SECRET)
+        self.auth.set_access_token(ACCESS_KEY, ACCESS_SECRET)
+        self.api = API(self.auth)
+
+    def printMaybe(self, text):
+        pass  # Do nothing sometimes
+        # print text
+
+    def printout(self, text):
+        print text
+
+    def tweet(self, text):
+        # print text
+        try:
+            self.api.update_status(text)
+            #API(self.auth).update_status(text)
+        except TweepError as e:
+            print e.api_code
+            print e.reason
+            print e.response
+            print e.message
+            print e.args
+            pass
+
+        print "tweeted" + text
+
+    # To check WiFi:
+    #   ip link
+    #   sudo ip link set wlan 0 down
+    #   sudo ip link set wlan 0 up
+    #   nmcli device status
+
 class StdOutListener(StreamListener):
     """Handles data received from the stream."""
 
@@ -150,14 +164,33 @@ class StdOutListener(StreamListener):
       #      print hashtag['text']
         return True
 
-    def on_data(self, data):
+    def on_data(self, data): # Usually on_data is called from sending @ChipCMD
         print "on_data"
         #print data
         # process stream data here
         jsonData=json.loads(data)
         #print str(jsonData)
-        print jsonData['text'] # This works, prints "#ChipCMD really looking" for example
-        comm.tweet("Chip-> I'm alive!")
+        incomingText = jsonData['text']
+        print incomingText # This works, prints "#ChipCMD really looking" for example
+        if count == 1:
+            textEnd = "."
+        else:
+            textEnd = "s."
+
+        text = "Chip-> I'm alive! It's " + datetime.datetime.now().strftime("%B %d, %Y %H:%M:%S")
+        text += " and door is " + doorState
+        if doorState == 'Open':
+            text += ", opened for " + count.__str__() + " minute" + textEnd
+        comm.tweet(text)
+
+        # Test if we are simulating the input. If so, then allow setting of the door
+        # Do nothing if the text is not 'open' or 'close'
+        if hasattr(GPIO, 'sim'): # If simulating
+            if incomingText.split().__len__() > 1: # if there is a command
+                if incomingText.split()[1] == 'open': # if the command is open
+                    GPIO.set(1)
+                elif incomingText.split()[1] == 'close': # if the command is close
+                    GPIO.set(0)
 
         # tweet = json.loads(data.strip())
         #
@@ -182,11 +215,29 @@ class StdOutListener(StreamListener):
 
     def on_timeout(self):
         print "on_timeout"
+        rl = comm.api.rate_limit_status()
+        print rl['resources']['statuses']['/statuses/home_timeline']
+        print rl['resources']['users']['/users/lookup']
+        print rl['resources']['account']['/account/login_verification_enrollment']
+        sleep(120)
         return True # To continue listening
 
     def on_error(self, status):
         print "on_error"
-        print "Received tweet error, status code: " + status
+        print "Received tweet error, status code: "
+        print status
+        rl = comm.api.rate_limit_status()
+        print rl['resources']['statuses']['/statuses/home_timeline']
+        print rl['resources']['users']['/users/lookup']
+        print rl['resources']['account']['/account/login_verification_enrollment']
+        sleep(120)
+        return True # To continue listening
+
+    def on_exception(self, exception):
+        print "on_exception"
+        print "Received tweet exception, status: "
+        print exception
+        sleep(120)
         return True # To continue listening
 #
 # Initialize
@@ -211,7 +262,7 @@ count = 0  # Number of intervals the door was noticed open
 interval = 1  # Number of minutes to wait between checks for open/closed
 door = "closed"
 
-text = "Looking for the door to change now."
+text = "Looking for the door to change @ " + datetime.datetime.now().strftime("%B %d, %Y %H:%M:%S")
 print text
 comm.tweet(text)
 
@@ -225,10 +276,13 @@ GPIO.setup(door1, GPIO.IN)
 follow = []
 track = ['ChipCMD']
 myStreamListener = StdOutListener()
-myStream = Stream(comm.auth, myStreamListener)
+try:
+    myStream = Stream(comm.auth, myStreamListener)
+except:
+    print "ReadTimeoutError. Not sure how to handle it."
 
 try:
-    myStream.filter(track=track, follow=follow)
+    myStream.filter(track=track, follow=follow, async=True)
 except:
     print "Stream Follow Error!"
     myStream.disconnect()
@@ -243,12 +297,14 @@ maybeClosedTime = 0
 heartbeatTime = "12:00"
 
 while True:
-    time.sleep(60) # Don't do much faster than 1 minute increments
+    time.sleep(60) # Don't do much faster than 1-2 minute increments
 
     if heartbeatTime == datetime.datetime.now().strftime("%H:%M"): # Beat if the time is right
-        text = "Chip Heartbeat" + datetime.datetime.now()
+        #text = "Chip Heartbeat" + datetime.datetime.now()
+        text = "Chip Heartbeat: " + datetime.datetime.now().strftime("%B %d, %Y %H:%M:%S")
         comm.printout(text)
         comm.tweet(text)
+    #datetime.datetime.now().strftime("%B %d %H:%M:%S")
 
     if doorState == 'Closed':
         if GPIO.input(door1):  # High means sensor is open
@@ -278,7 +334,8 @@ while True:
             duration = datetime.datetime.now() - SEVENHOURS - openTime  # now - opened
             if duration.total_seconds() > MessageTimeout:
                 count += MessageTimeout / 60.0
-                text = "Door open for " + str(count) + " minute"
+                text = datetime.datetime.now().strftime("%B %d, %Y %H:%M:%S")
+                text += ". Door open for " + str(count) + " minute"
                 if count > 1:
                     text += 's.'
                 else:
