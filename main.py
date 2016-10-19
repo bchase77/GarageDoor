@@ -4,25 +4,21 @@
 # This works, but it sticks in the streamlistener function, not looking at the door.
 # Need to separate that somehow.
 
-import os
 #import fcntl
-import time
-import sys
 import datetime
 import json
-import urllib2
-
-from time import gmtime, strftime, sleep
-from tweepy.streaming import StreamListener
-from tweepy import OAuthHandler
-from tweepy import Stream
-from tweepy import API
-from tweepy import TweepError
-# import tweepy
+import platform
+import sys
+import time
+from time import sleep
 
 from nltk.chat import eliza
+from altlib.streaming import StreamListener
+from tweepy import API
+from tweepy import OAuthHandler
+from tweepy import Stream
+from tweepy import TweepError
 
-import platform
 if platform.node()=="Bryan-SSD-HP":
     class GPIO:
         def __init__(self):
@@ -215,23 +211,29 @@ class StdOutListener(StreamListener):
 
     def on_timeout(self):
         print "on_timeout"
-        rl = comm.api.rate_limit_status()
-        print rl['resources']['statuses']['/statuses/home_timeline']
-        print rl['resources']['users']['/users/lookup']
-        print rl['resources']['account']['/account/login_verification_enrollment']
-        sleep(120)
-        return True # To continue listening
+        try:
+            rl = comm.api.rate_limit_status()
+            print rl['resources']['statuses']['/statuses/home_timeline']
+            print rl['resources']['users']['/users/lookup']
+            print rl['resources']['account']['/account/login_verification_enrollment']
+            sleep(120)
+            return True  # To continue listening
+        except:
+            pass
 
     def on_error(self, status):
         print "on_error"
         print "Received tweet error, status code: "
         print status
-        rl = comm.api.rate_limit_status()
-        print rl['resources']['statuses']['/statuses/home_timeline']
-        print rl['resources']['users']['/users/lookup']
-        print rl['resources']['account']['/account/login_verification_enrollment']
-        sleep(120)
-        return True # To continue listening
+        try:
+            rl = comm.api.rate_limit_status()
+            print rl['resources']['statuses']['/statuses/home_timeline']
+            print rl['resources']['users']['/users/lookup']
+            print rl['resources']['account']['/account/login_verification_enrollment']
+            sleep(120)
+            return True # To continue listening
+        except:
+            pass
 
     def on_exception(self, exception):
         print "on_exception"
