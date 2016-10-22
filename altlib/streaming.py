@@ -272,6 +272,7 @@ class Stream(object):
                 # If it's not time out treat it like any other exception
                 if isinstance(exc, ssl.SSLError):
                     if not (exc.args and 'timed out' in str(exc.args[0])):
+                        logging.exception("line 275")
                         exception = exc
                         break
                 if self.listener.on_timeout() is False:
@@ -282,6 +283,7 @@ class Stream(object):
                 self.snooze_time = min(self.snooze_time + self.snooze_time_step,
                                        self.snooze_time_cap)
             except Exception as exc:
+                logging.exception("line 286" + exc)
                 exception = exc
                 # any other exception is fatal, so kill loop
                 break
