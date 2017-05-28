@@ -123,7 +123,7 @@ class Comm:
 
     def tweet(self, text):
         # print text
-	if not isinstance(text, bytes):
+        if not isinstance(text, bytes):
             print "Error!!"
 
         try:
