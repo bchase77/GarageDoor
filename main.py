@@ -123,6 +123,9 @@ class Comm:
 
     def tweet(self, text):
         # print text
+	if not isinstance(text, bytes):
+            print "Error!!"
+
         try:
             self.api.update_status(text)
             #API(self.auth).update_status(text)
