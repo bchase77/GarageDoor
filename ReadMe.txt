@@ -1,6 +1,12 @@
 ReadMe.txt - Just keeping notes.
 
 JSON format converter: https://jsonformatter.curiousconcept.com/
+1) git status
+2) git checkout
+3) Edit files
+4) git commit -a (to do them all)
+5) git push (to update to the github website)
+
 
 resources
     help
@@ -35,3 +41,4 @@ g = f.replace('w"\\', "w'\\")
 ="
 /"
 w"\
+
