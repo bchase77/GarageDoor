@@ -47,6 +47,8 @@ if platform.node()=="Bryan-SSD-HP":
 
 else:
     import CHIP_IO.GPIO as GPIO
+    import CHIP_IO.Utilities as UT
+    UT.unexport_all()
 
 print "Hello C.H.I.P. World! Setting up to look at the garage door."
 
@@ -344,7 +346,7 @@ maybeClosedTime = 0
 heartbeatTime = "12:00"
 
 while True:
-    if heartbeatTime == datetime.datetime.now().strftime("%H:%M"): # Beat if the time is right
+    if heartbeatTime == (datetime.datetime.now() - SEVENHOURS).strftime("%H:%M"): # Beat if the time is right
         text = "Chip Heartbeat: " + (datetime.datetime.now() - SEVENHOURS).strftime("%B %d, %Y %H:%M:%S")
         comm.printout(text)
         comm.tweet(text)
