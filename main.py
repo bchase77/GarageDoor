@@ -139,7 +139,7 @@ class Comm:
             print e.args
             pass
 
-        print "tweeted" + text
+        print "tweeted:" + text
 
     # To check WiFi:
     #   ip link
