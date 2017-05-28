@@ -194,7 +194,7 @@ class StdOutListener(StreamListener):
                 textEnd = "s."
 
             text = "Chip-> I'm alive! It's " + (datetime.datetime.now() - SEVENHOURS).strftime("%B %d, %Y %H:%M:%S")
-            text += " and door is " + doorState
+            text += " and doors are " + doorState
             if doorState == 'Open':
                 text += ", opened for " + count.__str__() + " minute" + textEnd
             comm.tweet(text)
@@ -214,32 +214,7 @@ class StdOutListener(StreamListener):
                     comm.tweet(text)
                 else:
                     print "Neither open nor close received."
-                # if incomingText.split().__len__() > 1: # if there is a command
-                #     if incomingText.split()[1] == 'open': # if the command is open
-                #         GPIO.set(1)
-                #     elif incomingText.split()[1] == 'close': # if the command is close
-                #         GPIO.set(0)
 
-            # tweet = json.loads(data.strip())
-            #
-            # retweeted = tweet.get('retweeted', False)
-            # from_self = tweet.get('user', {}).get('id_str', '') == account_user_id
-            #
-            # if retweeted is not None and not retweeted and not from_self:
-            #
-                # tweetId = tweet.get('id_str')
-                # screenName = tweet.get('user').get('screen_name')
-                # tweetText = tweet.get('text')
-                #
-                # chatResponse = chatbot.respond(tweetText)
-                #
-                # replyText = '@' + screenName + ' ' + chatResponse
-                #
-                # if len(replyText) > 140:
-                #     replyText = replyText[0:137] + '...'
-                #
-                # # twitterApi.update_status(replyText, tweetId)
-                # print replyText
             return True # To continue listening
 
         except:
@@ -288,6 +263,8 @@ class StdOutListener(StreamListener):
         sleep(5)
         return True # To continue listening
 #
+# CODE FOR 1 DOOR:
+#
 # Initialize
 # doorState  doorSensor  Timer      Action
 # ---------  ----------  -----      ------
@@ -302,7 +279,25 @@ class StdOutListener(StreamListener):
 # MaybeOpen  Closed      > Timeout  doorState = Closed, send message "Door Closed"
 # MaybeOpen  Open        Timer = 0  (Log a shake) doorState = Open
 
+#
+# CODE FOR 2 DOORS:
+#
+# Initialize
+# doorState   doorSensor     Timer    Action
+# ---------   -----------  ---------  ------
+# Closed      Both Closed  don'tCare  do nothing
+# Closed      Either Open  don'tCare  doorState = maybeOpen; Note the time.
+# MaybeOpen   Either Open  < Timeout  do nothing
+# MaybeOpen   Either Open  > Timeout  doorState = open, send message "Door Opened"
+# MaybeOpen   Both Closed  Timer = 0  (Log a shake) doorState = Closed
+# Open        Either Open  If another interval has passed, send message "Door open for N minutes"
+# Open        Both Closed  don'tCare  doorState = maybeClosed; Note the time.
+# MaybeClosed Both Closed  < Timeout  do nothing
+# MaybeClosed Both Closed  > Timeout  doorState = Closed, send message "Door Closed"
+# MaybeClosed Either Open  Timer = 0  (Log a shake) doorState = Open
+
 door1 = "XIO-P7"
+door2 = "XIO-P3"
 
 comm = Comm()
 
@@ -310,11 +305,14 @@ count = 0  # Number of intervals the door was noticed open
 interval = 1  # Number of minutes to wait between checks for open/closed
 door = "closed"
 
-text = "Looking for the door to change @ " + (datetime.datetime.now() - SEVENHOURS).strftime("%B %d, %Y %H:%M:%S")
+#text = "Looking for the door to change @ " + (datetime.datetime.now() - SEVENHOURS).strftime("%B %d, %Y %H:%M:%S")
+text = "Looking for a door to change @ " + (datetime.datetime.now() - SEVENHOURS).strftime("%B %d, %Y %H:%M:%S")
+
 print text
 comm.tweet(text)
 
 GPIO.setup(door1, GPIO.IN)
+GPIO.setup(door2, GPIO.IN)
 
 # This if __name__ line will only run if this block is pasted
 # into the main.py module.
@@ -336,14 +334,14 @@ except:
     print "Stream Follow Error!"
     myStream.disconnect()
 
-doorState = 'Closed'  # Start assuming door is closed
+doorState = 'Closed'  # Start assuming each door is closed
 # Timeout = 1000 # # of milliseconds door needs to be open to be 'open'
 Timeout = 2  # # of seconds door needs to be open to be 'open'
-MessageTimeout = 120  # # of seconds between messages while the door is open
+MessageTimeout = 120  # # of seconds between messages while a door is open
 maybeOpenTime = 0
 openTime = 0
 maybeClosedTime = 0
-heartbeatTime = "12:00"
+heartbeatTime = "12:00" # UTC time
 
 while True:
     if heartbeatTime == (datetime.datetime.now() - SEVENHOURS).strftime("%H:%M"): # Beat if the time is right
@@ -352,7 +350,7 @@ while True:
         comm.tweet(text)
 
     if doorState == 'Closed':
-        if GPIO.input(door1):  # High means sensor is open
+        if (GPIO.input(door1) or GPIO.input(door2)):  # High means sensor is open
             doorState = 'MaybeOpen'
             maybeOpenTime = datetime.datetime.now() - SEVENHOURS
             comm.printMaybe('Closed, maybe open')
@@ -360,7 +358,7 @@ while True:
             pass  # do nothing
 
     elif doorState == 'MaybeOpen':
-        if GPIO.input(door1):  # High means sensor is open
+        if (GPIO.input(door1) or GPIO.input(door2)):  # High means sensor is open
             duration = datetime.datetime.now() - SEVENHOURS - maybeOpenTime
             if duration.total_seconds() > Timeout:
                 doorState = 'Open'
@@ -375,7 +373,7 @@ while True:
             comm.printMaybe('Shake - now closed')
 
     elif doorState == 'Open':
-        if GPIO.input(door1):  # High means sensor is open
+        if (GPIO.input(door1) or GPIO.input(door2)):  # High means sensor is open
             duration = datetime.datetime.now() - SEVENHOURS - openTime  # now - opened
             if duration.total_seconds() > MessageTimeout:
                 count += MessageTimeout / 60.0
@@ -396,7 +394,7 @@ while True:
             comm.printMaybe('Open, maybe closed')
 
     elif doorState == 'MaybeClosed':
-        if GPIO.input(door1):  # High means sensor is open
+        if (GPIO.input(door1) or GPIO.input(door2)):  # High means sensor is open
             doorState = 'Open'
             comm.printMaybe('Shake - now Open')
         else:  # Sensor is Closed
