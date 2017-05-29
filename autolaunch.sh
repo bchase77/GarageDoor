@@ -1,2 +1,2 @@
 #!/bin/bash
-sudo python /home/chip/garageDoor/GarageDoor/main.py &>/home/chip/garageDoor/GarageDoor/log.out
+sudo python /home/chip/GarageDoor/main.py &>/home/chip/GarageDoor/log.out
