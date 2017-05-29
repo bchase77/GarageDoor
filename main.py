@@ -297,7 +297,7 @@ class StdOutListener(StreamListener):
 # MaybeClosed Either Open  Timer = 0  (Log a shake) doorState = Open
 
 door1 = "XIO-P7"
-door2 = "XIO-P3"
+door2 = "XIO-P5"
 
 comm = Comm()
 
