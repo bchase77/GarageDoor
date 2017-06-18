@@ -10,6 +10,11 @@ JSON format converter: https://jsonformatter.curiousconcept.com/
 sudo systemctl daemon-reload
 sudo systemctl restart bmcdo.service
 
+systemd location is /etc/systemd/system
+
+XRDP location: /etc/xrdp
+added to xrdp.ini file: smart sizing:i:1
+
 resources
     help
     moments

@@ -226,12 +226,13 @@ class StdOutListener(StreamListener):
     def on_timeout(self):
         print "on_timeout"
         print (datetime.datetime.now() - SEVENHOURS).strftime("%B %d, %Y %H:%M:%S")
+        sleep(120)
         try:
             rl = comm.api.rate_limit_status()
             print rl['resources']['statuses']['/statuses/home_timeline']
             print rl['resources']['users']['/users/lookup']
             print rl['resources']['account']['/account/login_verification_enrollment']
-            sleep(120)
+        #    sleep(120)
             return True  # To continue listening
         except:
             pass
