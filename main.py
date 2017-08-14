@@ -50,6 +50,10 @@ else:
     import CHIP_IO.Utilities as UT
     UT.unexport_all()
 
+    # store one logfile in case of failure
+
+
+
 print "Hello C.H.I.P. World! Setting up to look at the garage door."
 
 GPIO.cleanup()
@@ -150,6 +154,9 @@ class Comm:
 class StdOutListener(StreamListener):
     """Handles data received from the stream."""
 
+    createStream = 1
+    disconnectStream = 0
+
     def on_status(self, status):
         print "on_status"
         print (datetime.datetime.now() - SEVENHOURS).strftime("%B %d, %Y %H:%M:%S")
@@ -183,56 +190,59 @@ class StdOutListener(StreamListener):
         else:
             print "data was None"
 
-        try:
-            jsonData=json.loads(g)
-            #print str(jsonData)
-            incomingText = jsonData['text']
-            print incomingText # This works, prints "#ChipCMD really looking" for example
-            if count == 1:
-                textEnd = "."
-            else:
-                textEnd = "s."
-
-            text = "Chip-> I'm alive! It's " + (datetime.datetime.now() - SEVENHOURS).strftime("%B %d, %Y %H:%M:%S")
-            text += " and doors are " + doorState
-            if doorState == 'Open':
-                text += ", opened for " + count.__str__() + " minute" + textEnd
-            comm.tweet(text)
-
-            # Test if we are simulating the input. If so, then allow setting of the door
-            # Do nothing if the text is not 'open' or 'close'
-            if hasattr(GPIO, 'sim'): # If simulating
-                if 'open' in incomingText: # Maybe set to open
-                    print "Open received."
-                    GPIO.set(1)
-                    text = "Door is now set to open. " + (datetime.datetime.now() - SEVENHOURS).strftime("%B %d, %Y %H:%M:%S")
-                    comm.tweet(text)
-                elif 'close' in incomingText: # or maybe set to closed
-                    print "Close received."
-                    GPIO.set(0)
-                    text = "Door is now set to closed. " + (datetime.datetime.now() - SEVENHOURS).strftime("%B %d, %Y %H:%M:%S")
-                    comm.tweet(text)
+        if len(g)<>0: # many times g is zero data, not sure why
+            try:
+                jsonData=json.loads(g)
+                #print str(jsonData)
+                incomingText = jsonData['text']
+                print incomingText # This works, prints "#ChipCMD really looking" for example
+                if count == 1:
+                    textEnd = "."
                 else:
-                    print "Neither open nor close received."
+                    textEnd = "s."
 
-            return True # To continue listening
+                text = "Chip-> I'm alive! It's " + (datetime.datetime.now() - SEVENHOURS).strftime("%B %d, %Y %H:%M:%S")
+                text += " and doors are " + doorState
+                if doorState == 'Open':
+                    text += ", opened for " + count.__str__() + " minute" + textEnd
+                comm.tweet(text)
 
-        except:
-            #jsonData = {"text": "empty"}
-            print "Try failed in jsonData=json.loads(data). Went to exception path."
-            sleep(60)  # Not sure why I'm getting empty responses, but wait 2 min to avoid twitter rate limiting
-            return True  # To continue listening
+                # Test if we are simulating the input. If so, then allow setting of the door
+                # Do nothing if the text is not 'open' or 'close'
+                if hasattr(GPIO, 'sim'): # If simulating
+                    if 'open' in incomingText: # Maybe set to open
+                        print "Open received."
+                        GPIO.set(1)
+                        text = "Door is now set to open. " + (datetime.datetime.now() - SEVENHOURS).strftime("%B %d, %Y %H:%M:%S")
+                        comm.tweet(text)
+                    elif 'close' in incomingText: # or maybe set to closed
+                        print "Close received."
+                        GPIO.set(0)
+                        text = "Door is now set to closed. " + (datetime.datetime.now() - SEVENHOURS).strftime("%B %d, %Y %H:%M:%S")
+                        comm.tweet(text)
+                    else:
+                        print "Neither open nor close received."
+
+                return True # To continue listening
+
+            except:
+                #jsonData = {"text": "empty"}
+                print "Try failed in jsonData=json.loads(data). Went to exception path."
+                sleep(60)  # Not sure why I'm getting empty responses, but wait 2 min to avoid twitter rate limiting
+                return True  # To continue listening
 
     def on_timeout(self):
         print "on_timeout"
         print (datetime.datetime.now() - SEVENHOURS).strftime("%B %d, %Y %H:%M:%S")
-        sleep(120)
+        sleep(180) # Let's try waiting 3 min instead of 2 min
         try:
             rl = comm.api.rate_limit_status()
             print rl['resources']['statuses']['/statuses/home_timeline']
             print rl['resources']['users']['/users/lookup']
             print rl['resources']['account']['/account/login_verification_enrollment']
         #    sleep(120)
+            self.disconnectStream = 1
+
             return True  # To continue listening
         except:
             pass
@@ -319,21 +329,7 @@ GPIO.setup(door2, GPIO.IN)
 # into the main.py module.
 # if __name__ == '__main__':
 
-#follow = [197944326]
-follow = []
-#track = ['ChipCMD']
-track = ['chipdeeps7']
-myStreamListener = StdOutListener()
-try:
-    myStream = Stream(comm.auth, myStreamListener)
-except:
-    print "ReadTimeoutError. Not sure how to handle it."
-
-try:
-    myStream.filter(track=track, follow=follow, async=True)
-except:
-    print "Stream Follow Error!"
-    myStream.disconnect()
+createStream = 1
 
 doorState = 'Closed'  # Start assuming each door is closed
 # Timeout = 1000 # # of milliseconds door needs to be open to be 'open'
@@ -345,6 +341,29 @@ maybeClosedTime = 0
 heartbeatTime = "12:00" # UTC time
 
 while True:
+    if createStream == 1:
+        createStream = 0
+        # follow = [197944326]
+        follow = []
+        # track = ['ChipCMD']
+        track = ['chipdeeps7']
+
+        myStreamListener = StdOutListener()
+        try:
+            myStream = Stream(comm.auth, myStreamListener)
+        except:
+            print "ReadTimeoutError. Not sure how to handle it."
+
+        try:
+            myStream.filter(track=track, follow=follow, async=True)
+        except:
+            print "Stream Follow Error!"
+            myStream.disconnect()
+
+    if myStreamListener.disconnectStream == 1:
+        myStream.disconnect()
+        createStream = 1
+
     if heartbeatTime == (datetime.datetime.now() - SEVENHOURS).strftime("%H:%M"): # Beat if the time is right
         text = "Chip Heartbeat: " + (datetime.datetime.now() - SEVENHOURS).strftime("%B %d, %Y %H:%M:%S")
         comm.printout(text)
